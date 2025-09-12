@@ -2,8 +2,9 @@
 
 namespace EskieGwapo\Multichain\Models;
 
-use App\Multichain\Multichain;
+use EskieGwapo\Multichain\Multichain;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 
 class BlockchainModel
 {
@@ -31,7 +32,7 @@ class BlockchainModel
     public static function create(array $attributes): static
     {
         $mc = app(Multichain::class);
-        $key = static::$stream.':'.uniqid();
+        $key = static::$stream.':'. Str::uuid7()->toString();
 
         $mc->call('publish', [
             static::$stream,
