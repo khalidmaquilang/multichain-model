@@ -39,6 +39,12 @@ MULTICHAIN_CHAIN=yourchain
 ## 📖 Usage
 ### Initialize Service
 
+In your multichain server (lets assume that we will create users table)
+```bash
+multichain-cli yourchain create stream users true
+multichain-cli yourchain subscribe users
+```
+
 ```php
 use EskieGwapo\Multichain\Models\BlockchainModel;
 
