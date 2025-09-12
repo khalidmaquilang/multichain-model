@@ -42,45 +42,61 @@ class BlockchainModel
 
         $mc = new Multichain;
 
-        /** @var string $stream */
         $stream = static::$stream;
-        $uuid = Str::uuid7()->toString();
+        $uuid = (string) Str::uuid(); // use uuid4 for uniqueness
 
-        $key = $stream.':'.$uuid;
+        $key = $uuid; // <-- just use uuid, not stream:uuid (avoid odd chars)
 
-        $encoded_attributes = json_encode($attributes);
-        if ($encoded_attributes === false) {
-            $encoded_attributes = '';
-        }
+        $encoded_attributes = json_encode($attributes) ?: '';
 
         $mc->call('publish', [
-            static::$stream,
+            $stream,
             $key,
             bin2hex($encoded_attributes),
         ]);
 
-        return new static($attributes + ['key' => $key]);
+        return new static(array_merge($attributes, ['id' => $key]));
     }
 
     /**
      * @return Collection<$this>
      */
-    public static function all(): Collection
+    public static function all(int $count = 10): Collection
     {
         $mc = new Multichain;
-        $items = $mc->call('liststreamitems', [static::$stream])['result'];
+        $items = $mc->call('liststreamitems', [static::$stream, true, $count, 0, false])['result'];
 
-        return collect($items)
-            ->map(function ($item): static {
-                $raw = $item['data']['hex'] ?? $item['data'] ?? null;
-                $data = $raw ? json_decode(hex2bin($raw), true) : [];
+        $records = [];
 
-                return new static($data + [
-                    'key' => $item['key'] ?? null,
+        foreach ($items as $item) {
+            $raw = $item['data']['hex'] ?? $item['data'] ?? null;
+            $data = $raw ? json_decode(hex2bin((string) $raw), true) : [];
+
+            $key = $item['keys'][0] ?? null;
+
+            if (! $key) {
+                continue; // skip items without keys
+            }
+
+            // If this key already exists, merge previous attributes with new one
+            if (isset($records[$key])) {
+                $data = array_merge($records[$key], $data);
+            }
+
+            $records[$key] = array_merge(
+                is_array($data) ? $data : [],
+                [
+                    'id' => $key,
                     'txid' => $item['txid'] ?? null,
-                ]);
-            })
-            ->filter(fn ($model): bool => empty($model->getAttribute('deleted')));
+                ]
+            );
+        }
+
+        // Convert each record into BlockchainModel instance and filter deleted ones
+        return collect($records)
+            ->map(fn ($attributes): static => new static($attributes))
+            ->filter(fn ($model): bool => empty($model->getAttribute('deleted')))
+            ->values();
     }
 
     public static function find(string $key): ?static
@@ -107,7 +123,7 @@ class BlockchainModel
             return null;
         }
 
-        return new static($data + ['key' => $key]);
+        return new static($data + ['id' => $key]);
 
     }
 
@@ -132,8 +148,8 @@ class BlockchainModel
 
         $mc->call('publish', [
             static::$stream,
-            $this->attributes['key'],
-            bin2hex(json_encode($encoded_attributes)),
+            $this->attributes['id'],
+            bin2hex($encoded_attributes),
         ]);
 
         return $this;
@@ -145,10 +161,15 @@ class BlockchainModel
 
         $this->attributes['deleted'] = true;
 
+        $encoded_attributes = json_encode($this->attributes);
+        if ($encoded_attributes === false) {
+            $encoded_attributes = '';
+        }
+
         $mc->call('publish', [
             static::$stream,
-            $this->attributes['key'],
-            bin2hex(json_encode($this->attributes)),
+            $this->attributes['id'],
+            bin2hex($encoded_attributes),
         ]);
 
         return $this;
@@ -160,12 +181,19 @@ class BlockchainModel
     public function history(): Collection
     {
         $mc = new Multichain;
-        $items = $mc->call('liststreamkeyitems', [static::$stream, $this->attributes['key']])['result'];
+        $items = $mc->call('liststreamkeyitems', [static::$stream, $this->attributes['id']])['result'];
 
-        return collect($items)->map(function ($item) {
+        return collect($items)->map(function ($item): static {
             $raw = $item['data']['hex'] ?? $item['data'] ?? null;
+            $data = $raw ? json_decode(hex2bin($raw), true) : [];
 
-            return $raw ? json_decode(hex2bin($raw), true) : [];
+            return new static(array_merge(
+                is_array($data) ? $data : [],
+                [
+                    'id' => $item['keys'][0] ?? null,
+                    'txid' => $item['txid'] ?? null,
+                ]
+            ));
         });
     }
 }
