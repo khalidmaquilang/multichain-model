@@ -12,8 +12,6 @@ class BlockchainModel
      */
     protected array $attributes = [];
 
-    protected Multichain $multichain;
-
     public function __construct(array $attributes = [])
     {
         $this->attributes = $attributes;
@@ -24,11 +22,14 @@ class BlockchainModel
         return $this->attributes[$key] ?? null;
     }
 
+    public function __get($name): mixed
+    {
+        return $this->getAttribute($name);
+    }
     public function setAttribute($key, $value): void
     {
         $this->attributes[$key] = $value;
     }
-
     public static function create(array $attributes): static
     {
         $mc = app(Multichain::class);
@@ -56,7 +57,10 @@ class BlockchainModel
                 $raw = $item['data']['hex'] ?? $item['data'] ?? null;
                 $data = $raw ? json_decode(hex2bin($raw), true) : [];
 
-                return new static($data + ['key' => $item['key']]);
+                return new static($data + [
+                        'key'  => $item['key'] ?? null,
+                        'txid' => $item['txid'] ?? null,
+                    ]);
             })
             ->filter(fn ($model) => empty($model->getAttribute('deleted')));
     }
