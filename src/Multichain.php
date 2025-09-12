@@ -2,7 +2,9 @@
 
 namespace EskieGwapo\Multichain;
 
+use EskieGwapo\Multichain\Exceptions\MultichainConnectionException;
 use Illuminate\Support\Facades\Http;
+use Throwable;
 
 class Multichain
 {
@@ -30,14 +32,24 @@ class Multichain
 
     public function call($method, $params = [])
     {
-        $response = Http::withBasicAuth(...$this->auth)
-            ->post($this->url, [
-                'method' => $method,
-                'params' => $params,
-                'id' => uniqid(),
-                'chain_name' => $this->chain_name,
-            ]);
+        try {
+            $response = Http::withBasicAuth(...$this->auth)
+                ->post($this->url, [
+                    'method' => $method,
+                    'params' => $params,
+                    'id' => uniqid(),
+                    'chain_name' => $this->chain_name,
+                ]);
+        } catch (Throwable $e) {
+            throw new MultichainConnectionException("Failed to connect to MultiChain: {$e->getMessage()}", 0, $e);
+        }
 
-        return $response->json();
+        $data = json_decode((string) $response->getBody(), true);
+
+        if (isset($data['error']) && $data['error']) {
+            throw new MultichainConnectionException('MultiChain RPC error: '.json_encode($data['error']));
+        }
+
+        return $data;
     }
 }
