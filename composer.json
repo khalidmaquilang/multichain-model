@@ -31,6 +31,13 @@
             "Tests\\": "tests/"
         }
     },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "EskieGwapo\\Multichain\\MultichainServiceProvider"
+            ]
+        }
+    },
     "minimum-stability": "dev",
     "prefer-stable": true,
     "config": {
@@ -42,20 +49,20 @@
     },
     "scripts": {
         "lint": "pint",
-        "refactor": "rector",
+        "rector": "rector",
         "test:type-coverage": "pest --type-coverage --exactly=100",
         "test:typos": "peck",
         "test:lint": "pint --test",
         "test:unit": "pest --coverage --exactly=100",
         "test:types": "phpstan",
-        "test:refactor": "rector --dry-run",
+        "test:rector": "rector --dry-run",
         "test": [
             "@test:lint",
             "@test:type-coverage",
             "@test:typos",
             "@test:unit",
             "@test:types",
-            "@test:refactor"
+            "@test:rector"
         ]
     }
 }
