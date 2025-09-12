@@ -17,9 +17,15 @@ class Multichain
 
     public function __construct()
     {
-        $this->url = 'http://'.config('multichain.host').':'.config('multichain.port');
-        $this->auth = [config('multichain.user'), config('multichain.pass')];
-        $this->chain_name = config('multichain.chain');
+        $host = config('multichain.host') ?? '127.0.0.1';
+        $port = config('multichain.port') ?? 9538;
+        $user = config('multichain.user') ?? 'multichainrpc';
+        $pass = config('multichain.pass') ?? 'password';
+        $chain = config('multichain.chain') ?? 'multichain';
+
+        $this->url = 'http://'.$host.':'.$port;
+        $this->auth = [$user, $pass];
+        $this->chain_name = $chain;
     }
 
     public function call($method, $params = [])
