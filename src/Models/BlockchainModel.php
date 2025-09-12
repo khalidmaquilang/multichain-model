@@ -4,17 +4,13 @@ namespace EskieGwapo\Multichain\Models;
 
 use App\Multichain\Multichain;
 use Illuminate\Support\Collection;
+
 class BlockchainModel
 {
     protected static string $stream;
-    /**
-     * @var array
-     */
-    protected array $attributes = [];
 
-    public function __construct(array $attributes = [])
+    public function __construct(protected array $attributes = [])
     {
-        $this->attributes = $attributes;
     }
 
     public function getAttribute($key): mixed
@@ -26,10 +22,12 @@ class BlockchainModel
     {
         return $this->getAttribute($name);
     }
+
     public function setAttribute($key, $value): void
     {
         $this->attributes[$key] = $value;
     }
+
     public static function create(array $attributes): static
     {
         $mc = app(Multichain::class);
@@ -38,7 +36,7 @@ class BlockchainModel
         $mc->call('publish', [
             static::$stream,
             $key,
-            bin2hex(json_encode($attributes))
+            bin2hex(json_encode($attributes)),
         ]);
 
         return new static($attributes + ['key' => $key]);
@@ -53,16 +51,16 @@ class BlockchainModel
         $items = $mc->call('liststreamitems', [static::$stream])['result'];
 
         return collect($items)
-            ->map(function ($item) {
+            ->map(function ($item): static {
                 $raw = $item['data']['hex'] ?? $item['data'] ?? null;
                 $data = $raw ? json_decode(hex2bin($raw), true) : [];
 
                 return new static($data + [
-                        'key'  => $item['key'] ?? null,
-                        'txid' => $item['txid'] ?? null,
-                    ]);
+                    'key' => $item['key'] ?? null,
+                    'txid' => $item['txid'] ?? null,
+                ]);
             })
-            ->filter(fn ($model) => empty($model->getAttribute('deleted')));
+            ->filter(fn ($model): bool => empty($model->getAttribute('deleted')));
     }
 
     public static function find($key): ?static
@@ -79,13 +77,13 @@ class BlockchainModel
         // MultiChain always returns hex in ['data']['hex']
         $raw = $latest['data']['hex'] ?? $latest['data'] ?? null;
 
-        if (!$raw) {
+        if (! $raw) {
             return null;
         }
 
-        $data = json_decode(hex2bin($raw), true);
+        $data = json_decode(hex2bin((string) $raw), true);
 
-        if (!empty($data['deleted'])) {
+        if (! empty($data['deleted'])) {
             return null;
         }
 
@@ -102,7 +100,7 @@ class BlockchainModel
         $mc->call('publish', [
             static::$stream,
             $this->attributes['key'],
-            bin2hex(json_encode($this->attributes))
+            bin2hex(json_encode($this->attributes)),
         ]);
 
         return $this;
@@ -117,7 +115,7 @@ class BlockchainModel
         $mc->call('publish', [
             static::$stream,
             $this->attributes['key'],
-            bin2hex(json_encode($this->attributes))
+            bin2hex(json_encode($this->attributes)),
         ]);
 
         return $this;
@@ -133,6 +131,7 @@ class BlockchainModel
 
         return collect($items)->map(function ($item) {
             $raw = $item['data']['hex'] ?? $item['data'] ?? null;
+
             return $raw ? json_decode(hex2bin($raw), true) : [];
         });
     }

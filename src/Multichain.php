@@ -7,6 +7,7 @@ use Illuminate\Support\Facades\Http;
 class Multichain
 {
     protected string $url;
+
     /**
      * @var array|string[]
      */
@@ -14,9 +15,9 @@ class Multichain
 
     protected string $chain_name;
 
-    function __construct()
+    public function __construct()
     {
-        $this->url = "http://" . config('multichain.host') . ":" . config('multichain.port');
+        $this->url = 'http://'.config('multichain.host').':'.config('multichain.port');
         $this->auth = [config('multichain.user'), config('multichain.pass')];
         $this->chain_name = config('multichain.chain');
     }
@@ -27,8 +28,8 @@ class Multichain
             ->post($this->url, [
                 'method' => $method,
                 'params' => $params,
-                'id'     => uniqid(),
-                'chain_name' => $this->chain_name
+                'id' => uniqid(),
+                'chain_name' => $this->chain_name,
             ]);
 
         return $response->json();

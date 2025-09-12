@@ -10,9 +10,7 @@ class MultichainServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/multichain.php', 'multichain');
 
-        $this->app->singleton(Multichain::class, function ($app) {
-            return new Multichain();
-        });
+        $this->app->singleton(Multichain::class, fn($app): \EskieGwapo\Multichain\Multichain => new Multichain);
     }
 
     public function boot(): void
