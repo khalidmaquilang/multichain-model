@@ -90,33 +90,23 @@ class BlockchainModel
                 $carbonTime = $blocktime ? \Carbon\Carbon::createFromTimestamp($blocktime) : null;
 
                 // use array_key_exists so a null placeholder (deleted marker) is considered "seen"
-                if (! array_key_exists($key, $records)) {
-                    // if the latest version (first seen) is deleted, store null and DO NOT accept older versions
-                    if (! empty($data['deleted'])) {
-                        $records[$key] = null;
-                        continue;
-                    }
-
-                    $records[$key] = array_merge(
-                        is_array($data) ? $data : [],
-                        [
-                            'id'         => $key,
-                            'txid'       => $item['txid'] ?? null,
-                            'updated_at' => $carbonTime,
-                            'created_at' => $carbonTime, // may be overwritten by older items if present
-                        ]
-                    );
-                } else {
-                    // If we previously stored null (deleted marker), skip updating/merging entirely.
-                    if ($records[$key] === null) {
-                        continue;
-                    }
-
-                    // update created_at to the OLDEST seen (we're iterating newest->oldest)
-                    if ($carbonTime && (! empty($records[$key]['created_at'])) && $carbonTime->lt($records[$key]['created_at'])) {
-                        $records[$key]['created_at'] = $carbonTime;
-                    }
+                if (array_key_exists($key, $records)) {
+                    continue;
                 }
+
+                // if the latest version (first seen) is deleted, store null and DO NOT accept older versions
+                if (! empty($data['deleted'])) {
+                    $records[$key] = null;
+                    continue;
+                }
+
+                $records[$key] = array_merge(
+                    is_array($data) ? $data : [],
+                    [
+                        'id'         => $key,
+                        'txid'       => $item['txid'] ?? null,
+                    ]
+                );
             }
 
             // increment to next batch
@@ -173,7 +163,6 @@ class BlockchainModel
                         [
                             'id'   => $key,
                             'txid' => $item['txid'] ?? null,
-                            'blocktime' => $item['blocktime'] ?? null,
                         ]
                     );
 
