@@ -86,9 +86,13 @@ class BlockchainModel
                     continue;
                 }
 
-                if (! isset($records[$key])) {
-                    // skip deleted
-                    if (!empty($data['deleted'])) {
+                $blocktime = $item['blocktime'] ?? null;
+                $carbonTime = $blocktime ? \Carbon\Carbon::createFromTimestamp($blocktime) : null;
+
+                // use array_key_exists so a null placeholder (deleted marker) is considered "seen"
+                if (! array_key_exists($key, $records)) {
+                    // if the latest version (first seen) is deleted, store null and DO NOT accept older versions
+                    if (! empty($data['deleted'])) {
                         $records[$key] = null;
                         continue;
                     }
@@ -96,10 +100,22 @@ class BlockchainModel
                     $records[$key] = array_merge(
                         is_array($data) ? $data : [],
                         [
-                            'id'   => $key,
-                            'txid' => $item['txid'] ?? null,
+                            'id'         => $key,
+                            'txid'       => $item['txid'] ?? null,
+                            'updated_at' => $carbonTime,
+                            'created_at' => $carbonTime, // may be overwritten by older items if present
                         ]
                     );
+                } else {
+                    // If we previously stored null (deleted marker), skip updating/merging entirely.
+                    if ($records[$key] === null) {
+                        continue;
+                    }
+
+                    // update created_at to the OLDEST seen (we're iterating newest->oldest)
+                    if ($carbonTime && (! empty($records[$key]['created_at'])) && $carbonTime->lt($records[$key]['created_at'])) {
+                        $records[$key]['created_at'] = $carbonTime;
+                    }
                 }
             }
 
@@ -108,8 +124,89 @@ class BlockchainModel
             $hasMore = count($items) === $batchSize;
         }
 
+        return collect(array_filter($records)) // removes null (deleted) entries
+        ->map(fn ($attributes): static => new static($attributes))
+            ->filter(fn ($model): bool => empty($model->getAttribute('deleted'))) // safety net
+            ->values();
+    }
+
+
+    public static function paginate(int $perPage = 10, int $page = 1): Collection
+    {
+        $mc = new Multichain;
+        $batchSize = 500;   // how many raw items we fetch at once
+        $start = 0;
+        $hasMore = true;
+        $records = [];
+
+        // how many distinct records to skip before starting collection
+        $offset = ($page - 1) * $perPage;
+        $collected = 0;
+
+        while ($hasMore && $collected < $perPage) {
+            $items = $mc->call('liststreamitems', [static::$stream, true, $batchSize, $start, false])['result'];
+
+            if (empty($items)) {
+                break;
+            }
+
+            // reverse so newest → oldest
+            foreach (array_reverse($items) as $item) {
+                $raw = $item['data']['hex'] ?? $item['data'] ?? null;
+                $data = $raw ? json_decode(hex2bin((string) $raw), true) : [];
+
+                $key = $item['keys'][0] ?? null;
+                if (! $key) {
+                    continue;
+                }
+
+                // check using array_key_exists to preserve deleted marker
+                if (! array_key_exists($key, $records)) {
+                    // latest version is deleted -> mark as null (and do not accept older versions)
+                    if (! empty($data['deleted'])) {
+                        $records[$key] = null;
+                        continue;
+                    }
+
+                    $model = array_merge(
+                        is_array($data) ? $data : [],
+                        [
+                            'id'   => $key,
+                            'txid' => $item['txid'] ?? null,
+                            'blocktime' => $item['blocktime'] ?? null,
+                        ]
+                    );
+
+                    $records[$key] = $model;
+
+                    // skip until we reach offset
+                    if (count(array_filter($records)) <= $offset) {
+                        continue;
+                    }
+
+                    // collect only if beyond offset
+                    $collected++;
+
+                    if ($collected >= $perPage) {
+                        break 2; // break both loops
+                    }
+                } else {
+                    // if previously stored null (deleted marker), skip older versions
+                    if ($records[$key] === null) {
+                        continue;
+                    }
+                }
+            }
+
+            $start += $batchSize;
+            $hasMore = count($items) === $batchSize;
+        }
+
         return collect(array_filter($records))
+            ->skip($offset)
+            ->take($perPage)
             ->map(fn ($attributes): static => new static($attributes))
+            ->filter(fn ($model): bool => empty($model->getAttribute('deleted')))
             ->values();
     }
 
