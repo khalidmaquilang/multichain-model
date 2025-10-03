@@ -50,7 +50,7 @@ use EskieGwapo\Multichain\Models\BlockchainModel;
 
 class User extends BlockchainModel
 {
-    protected static $stream = 'users';
+    protected static $stream = 'users'; // this is optional, if you want to specify the stream name
 }
 ```
 
@@ -68,7 +68,7 @@ $user = User::create([
 // Create user
 
 // Find user
-User::find($user->getAttribute('key'));
+User::find($user->id);
 ```
 
 ### Get all data

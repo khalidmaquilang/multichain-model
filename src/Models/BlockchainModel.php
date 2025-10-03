@@ -196,4 +196,14 @@ class BlockchainModel
             ));
         });
     }
+
+    /**
+     * Get the table associated with the model.
+     *
+     * @return string
+     */
+    public function getStream(): string
+    {
+        return self::$stream ?? Str::snake(Str::pluralStudly(class_basename($this)));
+    }
 }
