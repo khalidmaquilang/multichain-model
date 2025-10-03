@@ -43,7 +43,7 @@ class BlockchainModel
         $mc = new Multichain;
 
         $stream = static::$stream;
-        $uuid = (string) Str::uuid(); // use uuid4 for uniqueness
+        $uuid = (string) Str::uuid7(); // use uuid4 for uniqueness
 
         $key = $uuid; // <-- just use uuid, not stream:uuid (avoid odd chars)
 
@@ -61,41 +61,55 @@ class BlockchainModel
     /**
      * @return Collection<$this>
      */
-    public static function all(int $count = 10): Collection
+    public static function all(): Collection
     {
         $mc = new Multichain;
-        $items = $mc->call('liststreamitems', [static::$stream, true, $count, 0, false])['result'];
-
+        $start = 0;
+        $batchSize = 500; // fetch in chunks
+        $hasMore = true;
         $records = [];
 
-        foreach ($items as $item) {
-            $raw = $item['data']['hex'] ?? $item['data'] ?? null;
-            $data = $raw ? json_decode(hex2bin((string) $raw), true) : [];
+        while ($hasMore) {
+            $items = $mc->call('liststreamitems', [static::$stream, true, $batchSize, $start, false])['result'];
 
-            $key = $item['keys'][0] ?? null;
-
-            if (! $key) {
-                continue; // skip items without keys
+            if (empty($items)) {
+                break;
             }
 
-            // If this key already exists, merge previous attributes with new one
-            if (isset($records[$key])) {
-                $data = array_merge($records[$key], $data);
+            // reverse so newest → oldest
+            foreach (array_reverse($items) as $item) {
+                $raw = $item['data']['hex'] ?? $item['data'] ?? null;
+                $data = $raw ? json_decode(hex2bin((string) $raw), true) : [];
+
+                $key = $item['keys'][0] ?? null;
+                if (! $key) {
+                    continue;
+                }
+
+                if (! isset($records[$key])) {
+                    // skip deleted
+                    if (!empty($data['deleted'])) {
+                        $records[$key] = null;
+                        continue;
+                    }
+
+                    $records[$key] = array_merge(
+                        is_array($data) ? $data : [],
+                        [
+                            'id'   => $key,
+                            'txid' => $item['txid'] ?? null,
+                        ]
+                    );
+                }
             }
 
-            $records[$key] = array_merge(
-                is_array($data) ? $data : [],
-                [
-                    'id' => $key,
-                    'txid' => $item['txid'] ?? null,
-                ]
-            );
+            // increment to next batch
+            $start += $batchSize;
+            $hasMore = count($items) === $batchSize;
         }
 
-        // Convert each record into BlockchainModel instance and filter deleted ones
-        return collect($records)
+        return collect(array_filter($records))
             ->map(fn ($attributes): static => new static($attributes))
-            ->filter(fn ($model): bool => empty($model->getAttribute('deleted')))
             ->values();
     }
 
