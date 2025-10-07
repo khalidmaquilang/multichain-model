@@ -223,8 +223,10 @@ class BlockchainModel
             return null;
         }
 
-        return new static($data + ['id' => $key]);
-
+        return new static($data + [
+            'id'   => $key,
+            'txid' => $latest['txid'] ?? null,
+        ]);
     }
 
     /**
