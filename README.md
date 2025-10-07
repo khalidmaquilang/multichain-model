@@ -14,8 +14,17 @@ A simple Laravel package to interact with MultiChain using RPC. Supports basic C
 ---
 
 ## 📦 Installation
+Add this to your `composer.json`
 ```bash
-composer require khalidmaquilang/multichain-model
+"repositories": [
+    {
+        "type": "vcs",
+        "url": "https://github.com/khalidmaquilang/multichain-model.git"
+    }
+],
+```
+```bash
+composer require khalidmaquilang/multichain-model:dev-main
 ```
 Publish config:
 ```bash
