@@ -10,6 +10,7 @@ A simple Laravel package to interact with MultiChain using RPC. Supports basic C
 - Update data (append a new version)
 - Soft delete data (mark as deleted)
 - Simple, clean Laravel-style API
+- Can act as audit trail
 
 ---
 
@@ -44,7 +45,7 @@ MULTICHAIN_CHAIN=yourchain
 ```
 
 ---
-
+# Use Blockchain as Model
 ## 📖 Usage
 ### Initialize Service
 
@@ -113,6 +114,28 @@ foreach ($history as $version) {
     dump($version);
 }
 ```
+
+# Use Blockchain as Audit Trail (Recommended)
+## 📖 Usage
+### Initialize Service
+
+In your multichain server (lets assume that we will create users table)
+```bash
+multichain-cli yourchain create stream users_history true
+multichain-cli yourchain subscribe users_history
+```
+### Note: The stream name is always be <table_name>_history
+
+```php
+use EskieGwapo\Multichain\Traits\HasAuditChainTrait;
+
+class User extends Model
+{
+    use HasAuditChainTrait;
+}
+```
+This will automatically create a record in the blockchain
+
 
 ## 📌 Notes
 - Blockchain data is immutable. Updates and deletes are logical operations by appending new entries.
