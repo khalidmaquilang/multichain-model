@@ -61,9 +61,9 @@ trait HasAuditChainTrait
 
         $hash = $result['result'] ?? null;
 
-        // Update transaction_hash if the field exists in the model
-        if (array_key_exists('transaction_hash', $this->getAttributes())) {
-            $this->{$this->getTransactionHashKey()} = $hash;
+        $transaction_hash = $this->getTransactionHashKey();
+        if (filled($transaction_hash)) {
+            $this->{$transaction_hash} = $hash;
             $this->saveQuietly();
         }
 
