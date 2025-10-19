@@ -59,7 +59,15 @@ trait HasAuditChainTrait
             bin2hex($encodedPayload),
         ]);
 
-        return $result['result'] ?? null;
+        $hash = $result['result'] ?? null;
+
+        // Update transaction_hash if the field exists in the model
+        if (array_key_exists('transaction_hash', $this->getAttributes())) {
+            $this->{$this->getTransactionHashKey()} = $hash;
+            $this->saveQuietly();
+        }
+
+        return $hash;
     }
 
     /**
@@ -113,4 +121,6 @@ trait HasAuditChainTrait
     {
         return $this->getTable().'_history';
     }
+
+    abstract function getTransactionHashKey(): string;
 }
