@@ -16,16 +16,28 @@ trait HasAuditChainTrait
     {
         // After a model is created
         static::created(function (Model $model) {
+            if (! config('multichain.enable', false)) {
+                return;
+            }
+
             $model->addHistory('created');
         });
 
         // After a model is updated
         static::updated(function (Model $model) {
+            if (! config('multichain.enable', false)) {
+                return;
+            }
+
             $model->addHistory('updated');
         });
 
         // After a model is deleted
         static::deleted(function (Model $model) {
+            if (! config('multichain.enable', false)) {
+                return;
+            }
+            
             $model->addHistory('deleted');
         });
     }
